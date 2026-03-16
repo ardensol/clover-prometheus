@@ -31,6 +31,19 @@ scrape_configs:
           environment: 'production'
           role: 'web'
 
+  # Node Exporter - Server metrics (CPU, RAM, disk, etc.)
+  - job_name: 'node-exporter'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+          - '64.23.192.251:9100'
+          - '64.23.182.234:9100'
+        labels:
+          app: 'restaurantops'
+          environment: 'production'
+          role: 'web'
+
   # RestaurantOps Production - Job servers (Sidekiq)
   - job_name: 'restaurantops-job'
     scrape_interval: 15s
