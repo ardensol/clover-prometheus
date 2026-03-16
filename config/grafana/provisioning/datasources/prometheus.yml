@@ -1,0 +1,11 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    # Kamal names accessory containers as: {service}-{accessory_name}
+    url: http://clover-monitoring-prometheus:9090
+    isDefault: true
+    editable: false

@@ -1,0 +1,77 @@
+# Kamal 2 configuration for Prometheus + Grafana monitoring stack
+# Grafana = main service (user-facing UI with SSL)
+# Prometheus = accessory (internal only, no public URL needed)
+
+service: clover-monitoring
+
+image: restaurantops/grafana
+
+logging:
+  driver: json-file
+  options:
+    max-size: 5g
+    max-file: 2
+
+ssh:
+  user: root
+
+builder:
+  arch: amd64
+
+# Grafana as main service (gets SSL via Kamal proxy)
+servers:
+  web:
+    hosts:
+      - 161.35.237.161  # Replace with your DigitalOcean IP
+
+# Kamal 2 proxy config - SSL for Grafana
+proxy:
+  ssl: true
+  hosts:
+    - grafana.restaurantops.co
+  app_port: 3000
+  healthcheck:
+    path: /api/health
+    interval: 10
+    timeout: 30
+
+# Prometheus as accessory (internal only, no public URL)
+accessories:
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    host: 161.35.237.161  # Replace with your DigitalOcean IP
+    port: 9090:9090
+    directories:
+      - prometheus_data:/prometheus
+    files:
+      - config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - config/prometheus/alerts/rails.yml:/etc/prometheus/alerts/rails.yml
+    options:
+      user: root
+    cmd: >-
+      --config.file=/etc/prometheus/prometheus.yml
+      --storage.tsdb.path=/prometheus
+      --storage.tsdb.retention.time=30d
+      --storage.tsdb.retention.size=40GB
+      --web.enable-lifecycle
+
+# Docker registry
+registry:
+  username: restaurantops
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+# Environment variables for Grafana
+env:
+  clear:
+    GF_SECURITY_ADMIN_USER: admin
+    GF_USERS_ALLOW_SIGN_UP: "false"
+    GF_SERVER_ROOT_URL: https://grafana.restaurantops.co
+    # Point Grafana to Prometheus accessory container
+    GF_DATASOURCES_DEFAULT_URL: http://clover-monitoring-prometheus:9090
+  secret:
+    - GRAFANA_ADMIN_PASSWORD
+
+# Volume mounts for Grafana data persistence
+volumes:
+  - grafana_data:/var/lib/grafana

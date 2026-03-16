@@ -1,0 +1,53 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files:
+  - /etc/prometheus/alerts/*.yml
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # RestaurantOps Production - Web servers
+  - job_name: 'restaurantops-web'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: '/metrics'
+    scheme: http
+    static_configs:
+      - targets:
+          - '64.23.192.251:3000'
+          - '64.23.182.234:3000'
+        labels:
+          app: 'restaurantops'
+          environment: 'production'
+          role: 'web'
+
+  # RestaurantOps Production - Job servers (Sidekiq)
+  - job_name: 'restaurantops-job'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: '/metrics'
+    scheme: http
+    static_configs:
+      - targets:
+          - '143.110.154.221:3000'
+          - '64.23.140.194:3000'
+        labels:
+          app: 'restaurantops'
+          environment: 'production'
+          role: 'job'
+      - targets:
+          - '143.198.149.49:3000'
+        labels:
+          app: 'restaurantops'
+          environment: 'production'
+          role: 'job-critical'

@@ -1,0 +1,9 @@
+# Kamal secrets (contains passwords)
+.kamal/secrets
+
+# Local environment
+.env
+.env.local
+
+# OS files
+.DS_Store
