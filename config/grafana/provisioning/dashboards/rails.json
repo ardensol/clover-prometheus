@@ -903,7 +903,7 @@
             "uid": "prometheus"
           },
           "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"})) * 100",
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{role}} - {{instance}}",
           "refId": "A"
         }
       ],
@@ -999,8 +999,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(1 - avg by(instance) (rate(node_cpu_seconds_total{job=\"node-exporter\", mode=\"idle\"}[5m]))) * 100",
-          "legendFormat": "{{instance}}",
+          "expr": "(1 - avg by(instance, role) (rate(node_cpu_seconds_total{job=\"node-exporter\", mode=\"idle\"}[5m]))) * 100",
+          "legendFormat": "{{role}} - {{instance}}",
           "refId": "A"
         }
       ],
