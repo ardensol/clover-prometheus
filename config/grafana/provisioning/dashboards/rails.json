@@ -478,7 +478,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * sum(puma_busy_threads{environment=\"$environment\"}) / sum(puma_max_threads{environment=\"$environment\"})",
+          "expr": "100 * sum(puma_running{environment=\"$environment\"}) / sum(puma_max_threads{environment=\"$environment\"})",
           "legendFormat": "Thread Utilization",
           "refId": "A"
         }
