@@ -62,8 +62,6 @@ accessories:
     env:
       secret:
         - DATA_SOURCE_NAME
-    options:
-      network: kamal
 
 # Docker registry
 registry:
