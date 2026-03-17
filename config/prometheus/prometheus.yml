@@ -43,6 +43,14 @@ scrape_configs:
           app: 'restaurantops'
           environment: 'production'
           role: 'web'
+      - targets:
+          - '64.23.140.194:9100'
+          - '143.110.154.221:9100'
+          - '143.198.149.49:9100'
+        labels:
+          app: 'restaurantops'
+          environment: 'production'
+          role: 'job'
 
   # RestaurantOps Production - Job servers (Sidekiq)
   - job_name: 'restaurantops-job'
@@ -64,3 +72,17 @@ scrape_configs:
           app: 'restaurantops'
           environment: 'production'
           role: 'job-critical'
+
+  # PostgreSQL - Database metrics via postgres_exporter
+  # postgres_exporter should be running with:
+  # DATA_SOURCE_NAME="postgresql://prometheus_exporter:YOUR_PASSWORD_HERE@your-db-host:25060/defaultdb?sslmode=require"
+  - job_name: 'postgres'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+          - 'clover-monitoring-postgres-exporter:9187'
+        labels:
+          app: 'restaurantops'
+          environment: 'production'
+          role: 'database'
