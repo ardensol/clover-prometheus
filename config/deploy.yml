@@ -59,12 +59,9 @@ accessories:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     host: 161.35.237.161
     port: 9187:9187
-    files:
-      - config/postgres-exporter/queries.yml:/etc/postgres-exporter/queries.yml
     env:
       secret:
         - DATA_SOURCE_NAME
-    cmd: --extend.query-path=/etc/postgres-exporter/queries.yml
 
 # Docker registry
 registry:
