@@ -1,0 +1,83 @@
+pg_stat_statements:
+  query: |
+    SELECT
+      queryid,
+      LEFT(query, 100) as query,
+      calls,
+      total_exec_time / 1000 as total_time_seconds,
+      mean_exec_time / 1000 as mean_time_seconds,
+      rows
+    FROM pg_stat_statements
+    WHERE query NOT LIKE '%pg_stat_statements%'
+    ORDER BY total_exec_time DESC
+    LIMIT 20
+  metrics:
+    - queryid:
+        usage: "LABEL"
+        description: "Query ID"
+    - query:
+        usage: "LABEL"
+        description: "Query text (truncated)"
+    - calls:
+        usage: "COUNTER"
+        description: "Number of times executed"
+    - total_time_seconds:
+        usage: "COUNTER"
+        description: "Total time spent in seconds"
+    - mean_time_seconds:
+        usage: "GAUGE"
+        description: "Mean execution time in seconds"
+    - rows:
+        usage: "COUNTER"
+        description: "Total rows retrieved or affected"
+
+pg_stat_statements_top_mean:
+  query: |
+    SELECT
+      queryid,
+      LEFT(query, 100) as query,
+      calls,
+      mean_exec_time / 1000 as mean_time_seconds
+    FROM pg_stat_statements
+    WHERE query NOT LIKE '%pg_stat_statements%'
+      AND calls > 10
+    ORDER BY mean_exec_time DESC
+    LIMIT 20
+  metrics:
+    - queryid:
+        usage: "LABEL"
+        description: "Query ID"
+    - query:
+        usage: "LABEL"
+        description: "Query text (truncated)"
+    - calls:
+        usage: "GAUGE"
+        description: "Number of times executed"
+    - mean_time_seconds:
+        usage: "GAUGE"
+        description: "Mean execution time in seconds"
+
+pg_stat_statements_top_calls:
+  query: |
+    SELECT
+      queryid,
+      LEFT(query, 100) as query,
+      calls,
+      total_exec_time / 1000 as total_time_seconds
+    FROM pg_stat_statements
+    WHERE query NOT LIKE '%pg_stat_statements%'
+    ORDER BY calls DESC
+    LIMIT 20
+  metrics:
+    - queryid:
+        usage: "LABEL"
+        description: "Query ID"
+    - query:
+        usage: "LABEL"
+        description: "Query text (truncated)"
+    - calls:
+        usage: "COUNTER"
+        description: "Number of times executed"
+    - total_time_seconds:
+        usage: "COUNTER"
+        description: "Total time spent in seconds"

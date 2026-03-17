@@ -1925,12 +1925,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pg_stat_activity_max_tx_duration{datname!=\"\",state=\"active\"}",
-          "legendFormat": "{{datname}} - {{usename}}",
+          "expr": "topk(10, pg_stat_statements_top_mean_mean_time_seconds)",
+          "legendFormat": "{{query}}",
           "refId": "A"
         }
       ],
-      "title": "Longest Running Active Queries",
+      "title": "Slowest Queries (avg duration)",
       "type": "timeseries"
     },
     {
@@ -2012,21 +2012,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(pg_stat_database_blks_read{datname!=\"\"}[5m])",
-          "legendFormat": "{{datname}} - disk reads",
+          "expr": "topk(10, rate(pg_stat_statements_top_calls_calls[5m]))",
+          "legendFormat": "{{query}}",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(pg_stat_database_blks_hit{datname!=\"\"}[5m])",
-          "legendFormat": "{{datname}} - cache hits",
-          "refId": "B"
         }
       ],
-      "title": "Block Reads vs Cache Hits",
+      "title": "Most Frequent Queries (calls/sec)",
       "type": "timeseries"
     },
     {
