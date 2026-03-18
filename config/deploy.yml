@@ -45,7 +45,6 @@ accessories:
       - prometheus_data:/prometheus
     files:
       - config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - config/prometheus/alerts/rails.yml:/etc/prometheus/alerts/rails.yml
     options:
       user: root
     cmd: >-
