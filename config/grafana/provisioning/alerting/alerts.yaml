@@ -20,8 +20,9 @@ groups:
             datasourceUid: prometheus
             model:
               expr: |
-                sum(rate(rails_requests_total{status=~"5.."}[5m])) by (environment)
-                / sum(rate(rails_requests_total[5m])) by (environment)
+                (sum by (environment) (rate(rails_requests_total{status=~"5.."}[5m]))
+                  or sum by (environment) (rate(rails_requests_total[5m])) * 0)
+                / sum by (environment) (rate(rails_requests_total[5m]))
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -119,7 +120,7 @@ groups:
               to: 0
             datasourceUid: prometheus
             model:
-              expr: up == 0
+              expr: up
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -144,9 +145,9 @@ groups:
               expression: B
               conditions:
                 - evaluator:
-                    type: gt
+                    type: lt
                     params:
-                      - 0
+                      - 1
                   operator:
                     type: and
         for: 1m
@@ -668,7 +669,7 @@ groups:
               to: 0
             datasourceUid: prometheus
             model:
-              expr: sum(pg_stat_activity_count{state="active"}) > 10
+              expr: sum(pg_stat_activity_count{state="active"})
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -695,7 +696,7 @@ groups:
                 - evaluator:
                     type: gt
                     params:
-                      - 0
+                      - 10
                   operator:
                     type: and
         for: 5m
