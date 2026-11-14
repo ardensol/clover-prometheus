@@ -11,7 +11,10 @@ Prometheus and Grafana monitoring stack for RestaurantOps (clover_order_poster) 
    ```
    KAMAL_REGISTRY_PASSWORD=your_docker_hub_password
    GRAFANA_ADMIN_PASSWORD=your_grafana_admin_password
+   DATA_SOURCE_NAME=postgresql://prometheus_exporter:PASSWORD@db-host:25060/defaultdb?sslmode=require
+   SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
    ```
+   Alerts go to the Slack incoming webhook (`config/grafana/provisioning/alerting/notifications.yaml`).
 
 3. **Set up DNS** - Point `grafana.restaurantops.co` to your DigitalOcean IP
 

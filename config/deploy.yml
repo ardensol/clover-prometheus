@@ -98,6 +98,8 @@ env:
     GF_DATASOURCES_DEFAULT_URL: http://clover-monitoring-prometheus:9090
   secret:
     - GRAFANA_ADMIN_PASSWORD
+    # Alert notifications (config/grafana/provisioning/alerting/notifications.yaml)
+    - SLACK_WEBHOOK_URL
 
 # Volume mounts for Grafana data persistence
 volumes:

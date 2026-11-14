@@ -1,0 +1,35 @@
+# Where alerts go. The webhook URL comes from the SLACK_WEBHOOK_URL Kamal
+# secret (.kamal/secrets, gitignored), passed to Grafana as an env var.
+
+apiVersion: 1
+
+templates:
+  - orgId: 1
+    name: slack
+    template: |
+      {{ define "slack.title" }}{{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}:rotating_light:{{ else }}:warning:{{ end }} {{ .CommonLabels.alertname }}{{ if gt (len .Alerts.Firing) 1 }} ({{ len .Alerts.Firing }}){{ end }}{{ else }}:white_check_mark: Resolved: {{ .CommonLabels.alertname }}{{ end }}{{ end }}
+
+      {{ define "slack.text" }}{{ range .Alerts }}*{{ or .Annotations.summary .Labels.alertname }}*{{ if .Labels.severity }} · {{ .Labels.severity }}{{ end }}
+      {{ if .Annotations.description }}{{ .Annotations.description }}
+      {{ end }}{{ if .Labels.instance }}Instance: `{{ .Labels.instance }}`
+      {{ end }}{{ end }}{{ end }}
+
+contactPoints:
+  - orgId: 1
+    name: Slack
+    receivers:
+      - uid: slack-alerts
+        type: slack
+        settings:
+          url: ${SLACK_WEBHOOK_URL}
+          title: '{{ template "slack.title" . }}'
+          text: '{{ template "slack.text" . }}'
+
+# Replaces the default policy (the placeholder email receiver).
+policies:
+  - orgId: 1
+    receiver: Slack
+    group_by: ['grafana_folder', 'alertname']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
