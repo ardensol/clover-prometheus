@@ -99,6 +99,7 @@ env:
   secret:
     - GRAFANA_ADMIN_PASSWORD
     # Incoming webhook for the Slack contact point. Channel is the webhook's channel.
+    # Alert notifications (config/grafana/provisioning/alerting/notifications.yaml)
     - SLACK_WEBHOOK_URL
 
 # Volume mounts for Grafana data persistence

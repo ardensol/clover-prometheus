@@ -11,8 +11,10 @@ Prometheus and Grafana monitoring stack for RestaurantOps (clover_order_poster) 
    ```
    KAMAL_REGISTRY_PASSWORD=your_docker_hub_password
    GRAFANA_ADMIN_PASSWORD=your_grafana_admin_password
+   DATA_SOURCE_NAME=postgresql://prometheus_exporter:PASSWORD@db-host:25060/defaultdb?sslmode=require
    SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
    ```
+   Alerts go to the Slack incoming webhook (`config/grafana/provisioning/alerting/notifications.yaml`).
 
    `SLACK_WEBHOOK_URL` is a Slack incoming webhook. Grafana provisions a Slack contact point from `config/grafana/provisioning/alerting/` and the default notification policy sends every alert there. Critical and warning are labeled in the message. The channel is the one the webhook was created for. Do not commit the webhook.
 
