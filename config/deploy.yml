@@ -55,7 +55,7 @@ accessories:
       --web.enable-lifecycle
 
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:v0.15.0
+    image: prometheuscommunity/postgres-exporter:v0.20.1
     host: 161.35.237.161
     port: 9187:9187
     env:
@@ -65,7 +65,7 @@ accessories:
   # Probes the load balancers and health endpoints. No published port:
   # Prometheus reaches it on the kamal network as clover-monitoring-blackbox-exporter:9115
   blackbox-exporter:
-    image: prom/blackbox-exporter:v0.25.0
+    image: prom/blackbox-exporter:v0.29.1
     host: 161.35.237.161
     files:
       - config/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml
@@ -74,7 +74,7 @@ accessories:
   # reaches it as clover-monitoring-node-exporter:9100. The host's root is
   # mounted read-only so disk usage is the droplet's, not the container's.
   node-exporter:
-    image: prom/node-exporter:v1.8.2
+    image: prom/node-exporter:v1.12.1
     host: 161.35.237.161
     options:
       pid: host
