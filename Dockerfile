@@ -1,4 +1,4 @@
-FROM grafana/grafana:11.6.16
+FROM grafana/grafana:12.4.15
 
 # Copy Grafana provisioning files
 COPY config/grafana/provisioning /etc/grafana/provisioning
