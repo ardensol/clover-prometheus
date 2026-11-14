@@ -38,32 +38,56 @@ scrape_configs:
       - targets:
           - '64.23.140.194:9100'
           - '143.110.154.221:9100'
-          - '143.198.149.49:9100'
         labels:
           app: 'restaurantops'
           environment: 'production'
           role: 'job'
 
-  # RestaurantOps Production - Job servers (Sidekiq)
-  - job_name: 'restaurantops-job'
+  # Load balancers - TCP connect to each LB IP via blackbox_exporter
+  - job_name: 'blackbox-lb-tcp'
     scrape_interval: 15s
     scrape_timeout: 10s
-    metrics_path: '/metrics'
-    scheme: http
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ['64.225.88.153:443']
+        labels:
+          lb: 'orders-load-balancer'
+          host: 'orders.restaurantops.co'
+      - targets: ['143.244.211.166:443']
+        labels:
+          lb: 'menugram-sfo3-load-balancer-01'
+          host: 'orders.menugram.app'
+      - targets: ['24.199.69.51:443']
+        labels:
+          lb: 'myrest-load-balancer'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: clover-monitoring-blackbox-exporter:9115
+
+  # Health endpoints - full HTTPS request through DNS and the load balancer
+  - job_name: 'blackbox-http'
+    scrape_interval: 15s
+    scrape_timeout: 12s
+    metrics_path: /probe
+    params:
+      module: [http_up]
     static_configs:
       - targets:
-          - '143.110.154.221'
-          - '64.23.140.194'
-        labels:
-          app: 'restaurantops'
-          environment: 'production'
-          role: 'job'
-      - targets:
-          - '143.198.149.49'
-        labels:
-          app: 'restaurantops'
-          environment: 'production'
-          role: 'job-critical'
+          - 'https://orders.restaurantops.co/up'
+          - 'https://orders.menugram.app/up'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: clover-monitoring-blackbox-exporter:9115
 
   # PostgreSQL - Database metrics via postgres_exporter
   # postgres_exporter should be running with:

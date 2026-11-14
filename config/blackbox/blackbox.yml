@@ -1,0 +1,19 @@
+# Blackbox exporter modules, probed by Prometheus (see the blackbox-* jobs in prometheus.yml)
+modules:
+  # Raw TCP connect to a load balancer IP. Catches dropped connections that
+  # the load balancer's own metrics don't show.
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+
+  # End-to-end HTTPS request (DNS, connect, TLS, response) to the health endpoint.
+  http_up:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      valid_status_codes: [200]
+      preferred_ip_protocol: ip4
+      fail_if_not_ssl: true

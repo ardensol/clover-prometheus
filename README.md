@@ -32,13 +32,14 @@ kamal accessory reboot prometheus
 
 - **Grafana**: Main service with SSL via Kamal proxy on `grafana.restaurantops.co`
 - **Prometheus**: Accessory container (internal only, port 9090)
+- **Blackbox exporter**: Accessory container (no published port) that probes the DigitalOcean load balancers (TCP connect) and the `/up` health endpoints (HTTPS). Shown on the "Load Balancers & Uptime" dashboard, with alerts in the Load Balancers folder
 
 ## Scrape Targets
 
 Production servers being monitored:
-- Web: 64.23.192.251, 64.23.182.234
-- Job: 143.110.154.221, 64.23.140.194
-- Job-Critical: 143.198.149.49
+- Web: 64.23.192.251, 64.23.182.234 (Rails `/metrics` and node exporter)
+- Job: 143.110.154.221, 64.23.140.194 (node exporter only; Sidekiq serves no `/metrics`)
+- Load balancers: 64.225.88.153 (orders.restaurantops.co), 143.244.211.166 (orders.menugram.app), 24.199.69.51 (blackbox TCP probes)
 
 ## Rails App Requirements
 

@@ -755,3 +755,155 @@ groups:
           description: "Replication lag is above 30 seconds"
         noDataState: NoData
         execErrState: Error
+
+  - orgId: 1
+    name: Load Balancer Alerts
+    folder: Load Balancers
+    interval: 1m
+    rules:
+      - uid: lb-connect-failures
+        title: LoadBalancerConnectFailures
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: '1 - avg_over_time(probe_success{job="blackbox-lb-tcp"}[15m])'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.05
+                  operator:
+                    type: and
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Load balancer dropping connections"
+          description: "More than 5% of TCP connects to {{ $labels.lb }} ({{ $labels.instance }}) failed over the last 15 minutes"
+        noDataState: NoData
+        execErrState: Error
+
+      - uid: lb-slow-connect
+        title: LoadBalancerSlowConnect
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'quantile_over_time(0.5, probe_duration_seconds{job="blackbox-lb-tcp"}[15m])'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.5
+                  operator:
+                    type: and
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Load balancer connects are slow"
+          description: "Median TCP connect time to {{ $labels.lb }} ({{ $labels.instance }}) is above 500ms"
+        noDataState: NoData
+        execErrState: Error
+
+      - uid: health-endpoint-down
+        title: HealthEndpointDown
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'avg_over_time(probe_success{job="blackbox-http"}[5m])'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 0.5
+                  operator:
+                    type: and
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Health endpoint failing"
+          description: "Most requests to {{ $labels.instance }} failed over the last 5 minutes"
+        noDataState: NoData
+        execErrState: Error
