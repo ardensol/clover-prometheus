@@ -42,6 +42,12 @@ scrape_configs:
           app: 'restaurantops'
           environment: 'production'
           role: 'job'
+      - targets:
+          - 'clover-monitoring-node-exporter:9100'
+        labels:
+          app: 'restaurantops'
+          environment: 'production'
+          role: 'monitoring'
 
   # Load balancers - TCP connect to each LB IP via blackbox_exporter
   - job_name: 'blackbox-lb-tcp'

@@ -39,6 +39,7 @@ kamal accessory reboot prometheus
 Production servers being monitored:
 - Web: 64.23.192.251, 64.23.182.234 (Rails `/metrics` and node exporter)
 - Job: 143.110.154.221, 64.23.140.194 (node exporter only; Sidekiq serves no `/metrics`)
+- Monitoring: this droplet, via the node-exporter accessory
 - Load balancers: 64.225.88.153 (orders.restaurantops.co), 143.244.211.166 (orders.menugram.app), 24.199.69.51 (blackbox TCP probes)
 
 ## Rails App Requirements

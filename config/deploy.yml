@@ -51,7 +51,7 @@ accessories:
       --config.file=/etc/prometheus/prometheus.yml
       --storage.tsdb.path=/prometheus
       --storage.tsdb.retention.time=30d
-      --storage.tsdb.retention.size=40GB
+      --storage.tsdb.retention.size=15GB
       --web.enable-lifecycle
 
   postgres-exporter:
@@ -69,6 +69,18 @@ accessories:
     host: 161.35.237.161
     files:
       - config/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml
+
+  # Server metrics for this monitoring droplet. No published port: Prometheus
+  # reaches it as clover-monitoring-node-exporter:9100. The host's root is
+  # mounted read-only so disk usage is the droplet's, not the container's.
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    host: 161.35.237.161
+    options:
+      pid: host
+    volumes:
+      - /:/host:ro,rslave
+    cmd: --path.rootfs=/host
 
 # Docker registry
 registry:

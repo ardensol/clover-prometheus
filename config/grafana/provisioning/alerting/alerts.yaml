@@ -266,7 +266,7 @@ groups:
               to: 0
             datasourceUid: prometheus
             model:
-              expr: 100 * sum(puma_busy_threads) by (environment) / sum(puma_max_threads) by (environment)
+              expr: 100 * (sum by (instance) (puma_max_threads) - sum by (instance) (puma_pool_capacity)) / sum by (instance) (puma_max_threads)
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -320,7 +320,7 @@ groups:
               to: 0
             datasourceUid: prometheus
             model:
-              expr: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+              expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -369,7 +369,7 @@ groups:
               to: 0
             datasourceUid: prometheus
             model:
-              expr: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+              expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -707,55 +707,6 @@ groups:
         noDataState: NoData
         execErrState: Error
 
-      - uid: postgres-replication-lag
-        title: PostgresReplicationLag
-        condition: C
-        data:
-          - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: prometheus
-            model:
-              expr: pg_replication_lag
-              intervalMs: 1000
-              maxDataPoints: 43200
-              refId: A
-          - refId: B
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: __expr__
-            model:
-              type: reduce
-              refId: B
-              expression: A
-              reducer: last
-          - refId: C
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: __expr__
-            model:
-              type: threshold
-              refId: C
-              expression: B
-              conditions:
-                - evaluator:
-                    type: gt
-                    params:
-                      - 30
-                  operator:
-                    type: and
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "PostgreSQL replication lag"
-          description: "Replication lag is above 30 seconds"
-        noDataState: NoData
-        execErrState: Error
-
   - orgId: 1
     name: Load Balancer Alerts
     folder: Load Balancers
@@ -907,3 +858,57 @@ groups:
           description: "Most requests to {{ $labels.instance }} failed over the last 5 minutes"
         noDataState: NoData
         execErrState: Error
+
+      - uid: tls-cert-expiring
+        title: TLSCertificateExpiring
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: '(probe_ssl_earliest_cert_expiry{job="blackbox-http"} - time()) / 86400'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 14
+                  operator:
+                    type: and
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "TLS certificate expiring soon"
+          description: "The certificate for {{ $labels.instance }} expires in under 14 days. Let's Encrypt renewal on the load balancer may have failed."
+        noDataState: NoData
+        execErrState: Error
+
+# Rules removed from this file must be listed here, or Grafana keeps them
+deleteRules:
+  - orgId: 1
+    uid: postgres-replication-lag
