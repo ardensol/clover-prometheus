@@ -7,11 +7,14 @@ Prometheus and Grafana monitoring stack for RestaurantOps (clover_order_poster) 
 1. **Update server IP** in `config/deploy.yml`:
    - Replace `YOUR_DIGITAL_OCEAN_IP` with your DigitalOcean droplet IP
 
-2. **Create secrets file** at `.kamal/secrets`:
+2. **Create secrets file** at `.kamal/secrets` (gitignored):
    ```
    KAMAL_REGISTRY_PASSWORD=your_docker_hub_password
    GRAFANA_ADMIN_PASSWORD=your_grafana_admin_password
+   SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
    ```
+
+   `SLACK_WEBHOOK_URL` is a Slack incoming webhook. Grafana provisions a Slack contact point from `config/grafana/provisioning/alerting/` and the default notification policy sends every alert there. Critical and warning are labeled in the message. The channel is the one the webhook was created for. Do not commit the webhook.
 
 3. **Set up DNS** - Point `grafana.restaurantops.co` to your DigitalOcean IP
 
@@ -31,6 +34,7 @@ kamal accessory reboot prometheus
 ## Architecture
 
 - **Grafana**: Main service with SSL via Kamal proxy on `grafana.restaurantops.co`
+- **Alerts**: Rules in `config/grafana/provisioning/alerting/alerts.yaml`. Contact point and notification policy in the same directory route them to Slack.
 - **Prometheus**: Accessory container (internal only, port 9090)
 - **Blackbox exporter**: Accessory container (no published port) that probes the DigitalOcean load balancers (TCP connect) and the `/up` health endpoints (HTTPS). Shown on the "Load Balancers & Uptime" dashboard, with alerts in the Load Balancers folder
 

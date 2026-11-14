@@ -1,0 +1,28 @@
+# Slack contact point for every Grafana alert.
+# The webhook URL is the SLACK_WEBHOOK_URL env var (Kamal secret). It is not
+# stored in git. The channel is whichever channel that webhook was created for.
+#
+# Grafana expands $VAR in these settings at startup. Go template variables
+# such as $labels would be eaten by that expansion, so this message uses
+# dot fields (.CommonLabels, .Labels). Escape a literal dollar as $$.
+
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: Slack
+    receivers:
+      - uid: slack
+        type: slack
+        disableResolveMessage: false
+        settings:
+          url: $SLACK_WEBHOOK_URL
+          username: Grafana
+          # Title leads with the severity so critical and warning are distinct
+          # before the alert name. Status is firing or resolved.
+          title: '{{ if eq .CommonLabels.severity "critical" }}CRITICAL{{ else if eq .CommonLabels.severity "warning" }}WARNING{{ else }}ALERT{{ end }} ({{ .Status }}): {{ .CommonLabels.alertname }}'
+          text: |
+            {{ range .Alerts }}Severity: {{ .Labels.severity }}
+            {{ .Annotations.summary }}
+            {{ .Annotations.description }}
+            {{ end }}
