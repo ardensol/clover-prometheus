@@ -38,7 +38,7 @@ proxy:
 # Prometheus as accessory (internal only, no public URL)
 accessories:
   prometheus:
-    image: prom/prometheus:v2.47.0
+    image: prom/prometheus:v2.55.1
     host: 161.35.237.161  # Replace with your DigitalOcean IP
     port: 9090:9090
     directories:

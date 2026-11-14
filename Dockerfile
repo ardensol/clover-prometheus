@@ -1,4 +1,4 @@
-FROM grafana/grafana:10.1.0
+FROM grafana/grafana:10.4.19-security-01
 
 # Copy Grafana provisioning files
 COPY config/grafana/provisioning /etc/grafana/provisioning

@@ -31,6 +31,45 @@ kamal deploy
 kamal accessory reboot prometheus
 ```
 
+## Upgrading Grafana and Prometheus
+
+Upgrade one step per deploy, oldest first, and check each step before the next.
+Each `clo-395` commit is one step: check it out, deploy it, then verify.
+
+| Step | Grafana | Prometheus | Exporters | Commands |
+|------|---------|------------|-----------|----------|
+| 1 | 10.4.19-security-01 | v2.55.1 | | `kamal deploy`, `kamal accessory reboot prometheus` |
+| 2 | 11.6.16 | | | `kamal deploy` |
+| 3 | 12.4.15 | | | `kamal deploy` |
+| 4 | 13.3.1 | v3.13.5 (LTS) | | `kamal deploy`, `kamal accessory reboot prometheus` |
+| 5 | | | current | `kamal accessory reboot blackbox-exporter`, `... node-exporter`, `... postgres-exporter`, then `kamal deploy` (dashboard queries) |
+
+Before step 1, back up Grafana's SQLite database on the host:
+
+```bash
+docker run --rm -v grafana_data:/d -v $PWD:/b alpine tar czf /b/grafana_data.tgz -C /d .
+```
+
+Grafana migrates its database on start and cannot be downgraded. To roll back
+a Grafana step, stop the service, restore `grafana_data.tgz` into the volume,
+and deploy the previous commit.
+
+Prometheus 2.55 reads and writes the TSDB format 3.x uses, so rolling back from
+3.x to 2.55 keeps the data. Do not go back to 2.47 after 2.55 or 3.x has run.
+
+After each step:
+
+```bash
+curl -s https://grafana.restaurantops.co/api/health
+# All alert rules report health "ok"
+curl -s -u admin:$GRAFANA_ADMIN_PASSWORD https://grafana.restaurantops.co/api/prometheus/grafana/api/v1/rules
+# All targets up, and the oldest data is still about 30 days old (9090 is firewalled from outside)
+ssh root@161.35.237.161 curl -s localhost:9090/api/v1/targets
+ssh root@161.35.237.161 "curl -s localhost:9090/api/v1/query --data-urlencode 'query=min_over_time(timestamp(up{job=\"prometheus\"})[30d:1h])'"
+```
+
+Then open both dashboards and check that the panels load.
+
 ## Architecture
 
 - **Grafana**: Main service with SSL via Kamal proxy on `grafana.restaurantops.co`
