@@ -13,6 +13,7 @@ Prometheus and Grafana monitoring stack for RestaurantOps (clover_order_poster) 
    GRAFANA_ADMIN_PASSWORD=your_grafana_admin_password
    DATA_SOURCE_NAME=postgresql://prometheus_exporter:PASSWORD@db-host:25060/defaultdb?sslmode=require
    SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+   REDIS_SIDEKIQ_URL=redis://...   # same value as the app's REDIS_SIDEKIQ_URL
    ```
    Alerts go to the Slack incoming webhook (`config/grafana/provisioning/alerting/notifications.yaml`).
 
@@ -31,6 +32,9 @@ kamal deploy
 
 # Redeploy accessories (Prometheus)
 kamal accessory reboot prometheus
+
+# First boot of a new accessory (kamal deploy does not start it)
+kamal accessory boot sidekiq-exporter
 ```
 
 ## Upgrading Grafana and Prometheus
@@ -78,12 +82,13 @@ Then open both dashboards and check that the panels load.
 - **Alerts**: Rules in `config/grafana/provisioning/alerting/alerts.yaml`. Contact point and notification policy in the same directory route them to Slack.
 - **Prometheus**: Accessory container (internal only, port 9090)
 - **Blackbox exporter**: Accessory container (no published port) that probes the DigitalOcean load balancers (TCP connect) and the `/up` health endpoints (HTTPS). Shown on the "Load Balancers & Uptime" dashboard, with alerts in the Load Balancers folder
+- **Sidekiq exporter**: Accessory container (`strech/sidekiq-prometheus-exporter`, no published port) that reads queue size and latency, processed/failed totals, and the retry, dead and scheduled sets from the app's Sidekiq Redis. The values are cluster-wide, so the job servers publish no metrics port. Redis must accept connections from this droplet. Shown in the Sidekiq row of the Rails dashboard, with alerts in the Sidekiq folder. If it can't reach Redis, its scrape fails and InstanceDown fires
 
 ## Scrape Targets
 
 Production servers being monitored:
 - Web: 64.23.192.251, 64.23.182.234 (Rails `/metrics` and node exporter)
-- Job: 143.110.154.221, 64.23.140.194 (node exporter only; Sidekiq serves no `/metrics`)
+- Job: 143.110.154.221, 64.23.140.194 (node exporter; Sidekiq metrics come from the sidekiq-exporter accessory, which reads Redis)
 - Monitoring: this droplet, via the node-exporter accessory
 - Load balancers: 64.225.88.153 (orders.restaurantops.co), 143.244.211.166 (orders.menugram.app), 24.199.69.51 (blackbox TCP probes)
 
@@ -119,3 +124,4 @@ Pre-configured dashboard includes:
 - DB connection pool utilization
 - Healthy instances count
 - Slowest endpoints (p95)
+- Sidekiq row: queue latency and size by queue, jobs processed/failed, retry/dead/scheduled sets, failed jobs by class, busy workers

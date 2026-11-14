@@ -82,6 +82,16 @@ accessories:
       - /:/host:ro,rslave
     cmd: --path.rootfs=/host
 
+  # Sidekiq queue metrics, read from the app's Sidekiq Redis. No published port:
+  # Prometheus reaches it as clover-monitoring-sidekiq-exporter:9292, so the job
+  # servers publish nothing. Redis must allow connections from this droplet.
+  sidekiq-exporter:
+    image: strech/sidekiq-prometheus-exporter:0.4.0
+    host: 161.35.237.161
+    env:
+      secret:
+        - REDIS_URL:REDIS_SIDEKIQ_URL
+
 # Docker registry
 registry:
   username: restaurantops
