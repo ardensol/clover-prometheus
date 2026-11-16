@@ -1026,7 +1026,64 @@ groups:
           description: "20 or more pay attempts and no successful payment in the last hour. A payment processor or POS may be down."
         noDataState: NoData
         execErrState: Error
-      
+
+  - orgId: 1
+    name: JS Error Alerts
+    folder: Checkout
+    interval: 1m
+    rules:
+      # Yabeda prefixes the group, so the series is frontend_js_errors_total
+      # (the same way rails_requests_total is named). Plain increase() misses a
+      # new series' first sample, so the second term adds that sample back.
+      - uid: js-errors-ordering
+        title: OrderingPageJsErrors
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: |
+                (sum(increase(frontend_js_errors_total{layout=~"restaurants|theme"}[15m])) or vector(0)) + (sum(min_over_time(frontend_js_errors_total{layout=~"restaurants|theme"}[15m]) unless frontend_js_errors_total{layout=~"restaurants|theme"} offset 15m) or vector(0))
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 10
+                  operator:
+                    type: and
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JS errors on ordering pages"
+          description: "More than 10 browser errors on the restaurants or theme layout in 15 minutes. Look up the reports with `kamal app logs -d production -r web -g JSError`."
+        noDataState: NoData
+        execErrState: Error
 
 # Rules removed from this file must be listed here, or Grafana keeps them
 deleteRules:
