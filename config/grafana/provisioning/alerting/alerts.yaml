@@ -1027,6 +1027,162 @@ groups:
         noDataState: NoData
         execErrState: Error
       
+  # Sidekiq metrics come from the sidekiq-exporter accessory, which reads Redis.
+  # If it can't reach Redis its scrape fails and InstanceDown fires instead.
+  # Latency is how long the oldest job in a queue has waited. An empty queue reports 0.
+  - orgId: 1
+    name: Sidekiq Alerts
+    folder: Sidekiq
+    interval: 1m
+    rules:
+      - uid: sidekiq-critical-latency
+        title: SidekiqCriticalQueueLatency
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: max(sidekiq_queue_latency_seconds{name="critical"}) or vector(0)
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 60
+                  operator:
+                    type: and
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Sidekiq critical queue is backed up"
+          description: "The oldest job in the critical queue has waited over 60 seconds for 5 minutes. Order processing may be stuck."
+        noDataState: NoData
+        execErrState: Error
+
+      - uid: sidekiq-default-latency
+        title: SidekiqDefaultQueueLatency
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: max(sidekiq_queue_latency_seconds{name="default"}) or vector(0)
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 300
+                  operator:
+                    type: and
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sidekiq default queue is backed up"
+          description: "The oldest job in the default queue has waited over 5 minutes, for 5 minutes."
+        noDataState: NoData
+        execErrState: Error
+
+      # A job lands in the dead set after it uses up its retries. Compares against
+      # an hour ago, so it keeps firing for an hour after a job dies.
+      - uid: sidekiq-dead-set-growing
+        title: SidekiqDeadSetGrowing
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: (max(sidekiq_dead_jobs) - max(sidekiq_dead_jobs offset 1h)) or vector(0)
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.5
+                  operator:
+                    type: and
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sidekiq dead set is growing"
+          description: "One or more jobs moved to the Sidekiq dead set in the last hour after using up their retries. Check /sidekiq/morgue."
+        noDataState: NoData
+        execErrState: Error
 
 # Rules removed from this file must be listed here, or Grafana keeps them
 deleteRules:

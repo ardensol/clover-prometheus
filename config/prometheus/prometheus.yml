@@ -23,6 +23,19 @@ scrape_configs:
           environment: 'production'
           role: 'web'
 
+  # Sidekiq - queue size and latency, processed/failed, retry and dead sets.
+  # The values are cluster-wide (read from Redis), so one target covers both job servers.
+  - job_name: 'restaurantops-sidekiq'
+    scrape_interval: 30s
+    scrape_timeout: 20s
+    static_configs:
+      - targets:
+          - 'clover-monitoring-sidekiq-exporter:9292'
+        labels:
+          app: 'restaurantops'
+          environment: 'production'
+          role: 'job'
+
   # Node Exporter - Server metrics (CPU, RAM, disk, etc.)
   - job_name: 'node-exporter'
     scrape_interval: 15s
