@@ -79,7 +79,7 @@ tests:
       - eval_time: 120m
         alertname: CheckoutPaymentsFailing
         exp_alerts: []
-  # Web host down (up=0) for the hour: guard holds it, InstanceDown covers it.
+  # Web host down (up=0) for the hour: guard holds it, MonitoringTargetDown covers it.
   - interval: 15s
     input_series:
       - series: 'up{job="restaurantops-web",instance="a"}'

@@ -1,0 +1,46 @@
+rule_files: [rules.yml]  # written by test/promtool.sh from alerts.yaml
+evaluation_interval: 1m
+tests:
+  # A first 5xx in checkout: the new series' first increment counts.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="prometheus",instance="localhost:9090"}'
+        values: '1x160'
+      - series: 'rails_requests_total{controller="api/v1/orders",action="pay",status="500"}'
+        values: '_x100 1x60'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CheckoutServerError
+        exp_alerts: [{exp_labels: {}}]
+  # Prometheus gap from 10m to 20m. Old 5xx counters (7 and 3 since the app
+  # started) don't change. Once the series 15m back falls in the gap, the
+  # first-increment term would add their whole totals. The scrape guard stops it.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="prometheus",instance="localhost:9090"}'
+        values: '1x40 _x39 1x80'
+      - series: 'rails_requests_total{controller="api/v1/orders",action="pay",status="500"}'
+        values: '7x40 _x39 7x80'
+      - series: 'rails_requests_total{controller="admin/items",action="index",status="500"}'
+        values: '3x40 _x39 3x80'
+    alert_rule_test:
+      - eval_time: 32m
+        alertname: CheckoutServerError
+        exp_alerts: []
+      - eval_time: 32m
+        alertname: ServerErrors
+        exp_alerts: []
+  # Real errors after the same gap still count through increase().
+  - interval: 15s
+    input_series:
+      - series: 'up{job="prometheus",instance="localhost:9090"}'
+        values: '1x40 _x39 1x80'
+      - series: 'rails_requests_total{controller="api/v1/orders",action="pay",status="500"}'
+        values: '7x40 _x39 7x40 8+1x39'
+    alert_rule_test:
+      - eval_time: 32m
+        alertname: CheckoutServerError
+        exp_alerts: [{exp_labels: {}}]
+      - eval_time: 32m
+        alertname: ServerErrors
+        exp_alerts: [{exp_labels: {}}]

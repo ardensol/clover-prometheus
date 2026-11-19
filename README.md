@@ -100,6 +100,36 @@ ssh root@161.35.237.161 "curl -s localhost:9090/api/v1/query --data-urlencode 'q
 
 Then open both dashboards and check that the panels load.
 
+## Monitoring alerts
+
+Alerts in the Monitoring folder (label `category: monitoring`) are about the
+monitoring stack, not the stores. Silence them apart from the business alerts
+with the matcher `grafana_folder=Monitoring`.
+
+| Alert | Fires when |
+|-------|-----------|
+| MonitoringDown | Grafana can't query Prometheus, or Prometheus has no `up` sample for `restaurantops-web`, for 5+ minutes |
+| MonitoringTargetDown | One scrape target has `up == 0` for 5+ minutes. Names the job and target |
+| MonitoringPrometheusRestarted | `process_start_time_seconds` changed in the last 15 minutes, after a gap under 5 minutes |
+| MonitoringPrometheusMemoryHigh | Prometheus RSS is over 60% of the droplet's RAM for 10 minutes |
+
+Grafana can't use a stopped Prometheus to alert on that Prometheus, so
+MonitoringDown uses Grafana's error handling: its query failing counts as
+firing (`execErrState: Alerting`). Every other rule keeps its last state when
+the query fails (`execErrState: KeepLast`), so an outage sends one
+MonitoringDown instead of a DatasourceError from every rule, and no checkout
+alert. If Grafana itself is down nothing alerts. An external uptime check on
+`https://grafana.restaurantops.co/api/health` would cover that.
+
+To check it after a deploy, stop Prometheus for about 7 minutes:
+
+```bash
+ssh root@161.35.237.161 docker stop clover-monitoring-prometheus
+# Slack: "WARNING (firing): MonitoringDown" after about 5 minutes, and nothing from Checkout
+ssh root@161.35.237.161 docker start clover-monitoring-prometheus
+# Slack: MonitoringDown resolved within a few minutes
+```
+
 ## Testing alert rules
 
 `test/promtool.sh` runs `promtool test rules` on the alert queries listed in it,
@@ -113,10 +143,10 @@ PATH=/path/to/prometheus-3.13.5.linux-amd64:$PATH test/promtool.sh
 ## Architecture
 
 - **Grafana**: Main service with SSL via Kamal proxy on `grafana.restaurantops.co`
-- **Alerts**: Rules in `config/grafana/provisioning/alerting/alerts.yaml`. Contact point and notification policy in the same directory route them to Slack.
+- **Alerts**: Rules in `config/grafana/provisioning/alerting/alerts.yaml`. Contact point and notification policy in the same directory route them to Slack. See Monitoring alerts above for the alerts about Prometheus itself.
 - **Prometheus**: Accessory container (internal only, port 9090)
 - **Blackbox exporter**: Accessory container (no published port) that probes the DigitalOcean load balancers (TCP connect) and the `/up` health endpoints (HTTPS). Shown on the "Load Balancers & Uptime" dashboard, with alerts in the Load Balancers folder
-- **Sidekiq exporter**: Accessory container (`strech/sidekiq-prometheus-exporter`, no published port) that reads queue size and latency, processed/failed totals, and the retry, dead and scheduled sets from the app's Sidekiq Redis. The values are cluster-wide, so the job servers publish no metrics port. Redis must accept connections from this droplet. Shown in the Sidekiq row of the Rails dashboard, with alerts in the Sidekiq folder. If it can't reach Redis, its scrape fails and InstanceDown fires
+- **Sidekiq exporter**: Accessory container (`strech/sidekiq-prometheus-exporter`, no published port) that reads queue size and latency, processed/failed totals, and the retry, dead and scheduled sets from the app's Sidekiq Redis. The values are cluster-wide, so the job servers publish no metrics port. Redis must accept connections from this droplet. Shown in the Sidekiq row of the Rails dashboard, with alerts in the Sidekiq folder. If it can't reach Redis, its scrape fails and MonitoringTargetDown fires
 
 ## Scrape Targets
 

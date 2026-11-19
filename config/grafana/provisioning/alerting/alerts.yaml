@@ -16,6 +16,11 @@ groups:
       #   inside the window (a rare error's first occurrence, or the first after
       #   a deploy), so add the starting value of series absent W ago:
       #   min_over_time(x[W]) unless x offset W
+      #   That term also matches every series when Prometheus has a gap around
+      #   W ago (an outage, or an OOM restart), and adds each counter's lifetime
+      #   total. So it only counts while Prometheus scraped itself for 90% of the
+      #   last W + 5m (72 of 80 scrapes at the 15s scrape_interval for W=15m):
+      #   and on() (count_over_time(up{job="prometheus"}[20m]) >= 72)
       - uid: high-error-rate
         title: ServerErrors
         condition: C
@@ -28,8 +33,9 @@ groups:
             model:
               expr: |
                 (sum(increase(rails_requests_total{status=~"5.."}[15m])) or vector(0))
-                + (sum(min_over_time(rails_requests_total{status=~"5.."}[15m])
-                    unless rails_requests_total{status=~"5.."} offset 15m) or vector(0))
+                + (sum((min_over_time(rails_requests_total{status=~"5.."}[15m])
+                    unless rails_requests_total{status=~"5.."} offset 15m)
+                    and on() (count_over_time(up{job="prometheus"}[20m]) >= 72)) or vector(0))
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -66,7 +72,7 @@ groups:
           summary: "Rails server errors"
           description: "3 or more 5xx responses in the last 15 minutes (normal is a few per week)"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: high-latency
         title: HighLatency
@@ -115,56 +121,7 @@ groups:
           summary: "High request latency"
           description: "p95 latency is above 2 seconds"
         noDataState: NoData
-        execErrState: Error
-
-      - uid: instance-down
-        title: InstanceDown
-        condition: C
-        data:
-          - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: prometheus
-            model:
-              expr: up
-              intervalMs: 1000
-              maxDataPoints: 43200
-              refId: A
-          - refId: B
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: __expr__
-            model:
-              type: reduce
-              refId: B
-              expression: A
-              reducer: last
-          - refId: C
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: __expr__
-            model:
-              type: threshold
-              refId: C
-              expression: B
-              conditions:
-                - evaluator:
-                    type: lt
-                    params:
-                      - 1
-                  operator:
-                    type: and
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Instance is down"
-          description: "An instance has been down for more than 1 minute"
-        noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: db-pool-exhausted
         title: DatabaseConnectionPoolExhausted
@@ -213,7 +170,7 @@ groups:
           summary: "DB connection pool exhausted"
           description: "Threads are waiting for database connections"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: high-db-connection-usage
         title: HighDatabaseConnectionUsage
@@ -262,7 +219,7 @@ groups:
           summary: "High DB connection pool usage"
           description: "Connection pool usage is above 80%"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: puma-threads-exhausted
         title: PumaThreadsExhausted
@@ -311,7 +268,7 @@ groups:
           summary: "Puma threads nearly exhausted"
           description: "Thread utilization is above 90%"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
   - orgId: 1
     name: System Alerts
@@ -365,7 +322,7 @@ groups:
           summary: "High CPU usage"
           description: "CPU usage is above 85%"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: critical-cpu-usage
         title: CriticalCPUUsage
@@ -414,7 +371,7 @@ groups:
           summary: "Critical CPU usage"
           description: "CPU usage is above 95%"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: high-memory-usage
         title: HighMemoryUsage
@@ -463,7 +420,7 @@ groups:
           summary: "High memory usage"
           description: "Memory usage is above 85%"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: critical-memory-usage
         title: CriticalMemoryUsage
@@ -512,7 +469,7 @@ groups:
           summary: "Critical memory usage"
           description: "Memory usage is above 95%"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: high-disk-usage
         title: HighDiskUsage
@@ -561,7 +518,7 @@ groups:
           summary: "High disk usage"
           description: "Disk usage is above 80%"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
   - orgId: 1
     name: PostgreSQL Alerts
@@ -615,7 +572,7 @@ groups:
           summary: "PostgreSQL is down"
           description: "PostgreSQL database is not responding"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: postgres-high-connections
         title: PostgresHighConnections
@@ -664,7 +621,7 @@ groups:
           summary: "High PostgreSQL connection usage"
           description: "Connection usage is above 80%"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: postgres-slow-queries
         title: PostgresSlowQueries
@@ -713,7 +670,7 @@ groups:
           summary: "High number of active queries"
           description: "More than 10 active queries running"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
   - orgId: 1
     name: Load Balancer Alerts
@@ -767,7 +724,7 @@ groups:
           summary: "Load balancer dropping connections"
           description: "More than 5% of TCP connects to {{ $labels.lb }} ({{ $labels.instance }}) failed over the last 15 minutes"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: lb-slow-connect
         title: LoadBalancerSlowConnect
@@ -816,7 +773,7 @@ groups:
           summary: "Load balancer connects are slow"
           description: "Median TCP connect time to {{ $labels.lb }} ({{ $labels.instance }}) is above 500ms"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: health-endpoint-down
         title: HealthEndpointDown
@@ -865,7 +822,7 @@ groups:
           summary: "Health endpoint failing"
           description: "Most requests to {{ $labels.instance }} failed over the last 5 minutes"
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: tls-cert-expiring
         title: TLSCertificateExpiring
@@ -914,7 +871,7 @@ groups:
           summary: "TLS certificate expiring soon"
           description: "The certificate for {{ $labels.instance }} expires in under 14 days. Let's Encrypt renewal on the load balancer may have failed."
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
   - orgId: 1
     name: Checkout Alerts
@@ -933,7 +890,8 @@ groups:
             model:
               expr: |
                 ((sum(increase(rails_requests_total{status=~"5..",controller=~"restaurants/order|restaurants/checkout|restaurants/line_items|api/v1/orders|api/v1/orders/line_items"}[15m])) or vector(0))
-                + (sum(min_over_time(rails_requests_total{status=~"5..",controller=~"restaurants/order|restaurants/checkout|restaurants/line_items|api/v1/orders|api/v1/orders/line_items"}[15m]) unless rails_requests_total{status=~"5..",controller=~"restaurants/order|restaurants/checkout|restaurants/line_items|api/v1/orders|api/v1/orders/line_items"} offset 15m) or vector(0)))
+                + (sum((min_over_time(rails_requests_total{status=~"5..",controller=~"restaurants/order|restaurants/checkout|restaurants/line_items|api/v1/orders|api/v1/orders/line_items"}[15m]) unless rails_requests_total{status=~"5..",controller=~"restaurants/order|restaurants/checkout|restaurants/line_items|api/v1/orders|api/v1/orders/line_items"} offset 15m)
+                    and on() (count_over_time(up{job="prometheus"}[20m]) >= 72)) or vector(0)))
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -970,7 +928,7 @@ groups:
           summary: "Server error in checkout"
           description: "A 5xx response from cart, checkout, pay or the orders API in the last 15 minutes. Customers may be unable to order."
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
       
       # pay returns 422 for declines and validation errors about 2 in 3 times, so
       # a rejection ratio is normal noise. An outage shows as attempts with almost no success.
@@ -985,7 +943,7 @@ groups:
       # Scrape guard: each web target needs 216 successful scrapes in the hour (90% of
       # 240 at the 15s scrape_interval in prometheus.yml; update it if that changes).
       # sum_over_time(up) counts missing scrapes as well as up=0, so a Prometheus outage
-      # or restart can't fire this. InstanceDown and the monitoring-down alert cover that.
+      # or restart can't fire this. The Monitoring folder's alerts cover that.
       - uid: checkout-payments-failing
         title: CheckoutPaymentsFailing
         condition: C
@@ -1041,7 +999,7 @@ groups:
         execErrState: OK
       
   # Sidekiq metrics come from the sidekiq-exporter accessory, which reads Redis.
-  # If it can't reach Redis its scrape fails and InstanceDown fires instead.
+  # If it can't reach Redis its scrape fails and MonitoringTargetDown fires instead.
   # Latency is how long the oldest job in a queue has waited. An empty queue reports 0.
   - orgId: 1
     name: Sidekiq Alerts
@@ -1095,7 +1053,7 @@ groups:
           summary: "Sidekiq critical queue is backed up"
           description: "The oldest job in the critical queue has waited over 60 seconds for 5 minutes. Order processing may be stuck."
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       - uid: sidekiq-default-latency
         title: SidekiqDefaultQueueLatency
@@ -1144,7 +1102,7 @@ groups:
           summary: "Sidekiq default queue is backed up"
           description: "The oldest job in the default queue has waited over 5 minutes, for 5 minutes."
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
 
       # A job lands in the dead set after it uses up its retries. Compares against
       # an hour ago, so it keeps firing for an hour after a job dies.
@@ -1195,9 +1153,238 @@ groups:
           summary: "Sidekiq dead set is growing"
           description: "One or more jobs moved to the Sidekiq dead set in the last hour after using up their retries. Check /sidekiq/morgue."
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
+
+  # Problems with the monitoring itself, not the business. Silence them apart from
+  # the rest with grafana_folder=Monitoring (or category=monitoring).
+  # Grafana can't use a stopped Prometheus to alert on that Prometheus, so
+  # MonitoringDown fires on the query error itself (execErrState: Alerting). Every
+  # other rule keeps its last state on an error (KeepLast), so a Prometheus outage
+  # sends this one alert instead of a DatasourceError from every rule.
+  - orgId: 1
+    name: Monitoring Alerts
+    folder: Monitoring
+    interval: 1m
+    rules:
+      # Fires when Grafana's Prometheus queries fail (Prometheus stopped, OOM-killed or
+      # unreachable), or when Prometheus answers but has stopped scraping (no up
+      # sample for the web job in the last minute). Either way, after 5 minutes.
+      - uid: monitoring-down
+        title: MonitoringDown
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: |
+                max(absent_over_time(up{job="restaurantops-web"}[1m])) or vector(0)
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.5
+                  operator:
+                    type: and
+        for: 5m
+        labels:
+          severity: warning
+          category: monitoring
+        annotations:
+          summary: "Monitoring is down"
+          description: "Prometheus has not scraped restaurantops-web for 5+ minutes, or Grafana can't query Prometheus. Checkout and other alerts may be unreliable until it recovers. This is a monitoring problem, not a store outage."
+        noDataState: Alerting
+        execErrState: Alerting
+
+      # One alert per target (web, node, Sidekiq, Postgres and blackbox exporters).
+      # No data means Prometheus itself isn't scraping, which MonitoringDown covers.
+      - uid: monitoring-target-down
+        title: MonitoringTargetDown
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: |
+                up
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+        for: 5m
+        labels:
+          severity: warning
+          category: monitoring
+        annotations:
+          summary: "Monitoring can't scrape {{ .Labels.job }}"
+          description: "Prometheus has failed to scrape {{ .Labels.job }} at {{ .Labels.instance }} for 5+ minutes. The host, app or exporter is down or unreachable, so alerts that use its metrics may be unreliable."
+        noDataState: OK
+        execErrState: KeepLast
+
+      # A quick restart, such as an OOM kill that Docker restarts, leaves only a
+      # short gap that MonitoringDown never sees. The count guard (40 of 60 scrapes
+      # at 15s) skips restarts after a gap over 5 minutes, which MonitoringDown reported.
+      - uid: monitoring-prometheus-restarted
+        title: MonitoringPrometheusRestarted
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: |
+                (max(changes(process_start_time_seconds{job="prometheus"}[15m])) > bool 0)
+                * (max(count_over_time(up{job="prometheus"}[15m])) >= bool 40)
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.5
+                  operator:
+                    type: and
+        for: 0s
+        labels:
+          severity: warning
+          category: monitoring
+        annotations:
+          summary: "Monitoring: Prometheus restarted"
+          description: "Prometheus restarted in the last 15 minutes (an OOM kill, a crash or a reboot), so there may be a short gap in metrics. A planned kamal accessory reboot also sends this."
+        noDataState: OK
+        execErrState: KeepLast
+
+      # The droplet has 1GB and Prometheus runs without a container limit, so the
+      # limit is the droplet's RAM (node exporter on this droplet, role=monitoring).
+      - uid: monitoring-prometheus-memory-high
+        title: MonitoringPrometheusMemoryHigh
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: |
+                max(process_resident_memory_bytes{job="prometheus"}) / max(node_memory_MemTotal_bytes{role="monitoring"})
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.6
+                  operator:
+                    type: and
+        for: 10m
+        labels:
+          severity: warning
+          category: monitoring
+        annotations:
+          summary: "Monitoring: Prometheus memory is high"
+          description: "Prometheus has used over 60% of the monitoring droplet's RAM for 10 minutes. It was OOM-killed at about this size before, which stops all alerting."
+        noDataState: OK
+        execErrState: KeepLast
 
 # Rules removed from this file must be listed here, or Grafana keeps them
 deleteRules:
   - orgId: 1
     uid: postgres-replication-lag
+  # InstanceDown, replaced by MonitoringTargetDown
+  - orgId: 1
+    uid: instance-down
