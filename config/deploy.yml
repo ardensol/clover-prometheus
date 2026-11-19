@@ -6,11 +6,12 @@ service: clover-monitoring
 
 image: restaurantops/grafana
 
+# Applies to the accessories too. The droplet's disk is 24GB.
 logging:
   driver: json-file
   options:
-    max-size: 5g
-    max-file: 2
+    max-size: 100m
+    max-file: 3
 
 ssh:
   user: root

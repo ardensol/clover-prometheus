@@ -22,6 +22,13 @@ scrape_configs:
           app: 'restaurantops'
           environment: 'production'
           role: 'web'
+    # Drop histogram buckets no dashboard or alert uses: about half of all series
+    # on a 1GB droplet. _sum and _count are kept, so averages still work.
+    # rails_request_duration_seconds_bucket is used (latency panels, slow-request alert).
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'rails_db_runtime_seconds_bucket|rails_view_runtime_seconds_bucket|activerecord_query_duration_seconds_bucket'
+        action: drop
 
   # Sidekiq - queue size and latency, processed/failed, retry and dead sets.
   # The values are cluster-wide (read from Redis), so one target covers both job servers.

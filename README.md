@@ -37,6 +37,30 @@ kamal accessory reboot prometheus
 kamal accessory boot sidekiq-exporter
 ```
 
+If a deploy hangs (usually because the droplet ran out of memory), it leaves a
+deploy lock and can leave two `clover-monitoring-web-*` containers running on the
+same Grafana database. Check `kamal lock status` and `docker ps` on the host, and
+stop the container the proxy isn't routing to before retrying.
+
+## Droplet memory and swap
+
+The droplet has 1 vCPU and 1GB of RAM. Grafana 13 uses about 300MB and Prometheus
+up to about 500MB, and without swap the kernel OOM-kills Prometheus or the whole
+box hangs. Swap is host config that Kamal does not manage, so set it up by hand on
+a new droplet:
+
+```bash
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+echo 'vm.swappiness=10' > /etc/sysctl.d/99-swap.conf && sysctl -p /etc/sysctl.d/99-swap.conf
+```
+
+To keep Prometheus small, `prometheus.yml` drops Rails histogram buckets that no
+dashboard or alert uses (`metric_relabel_configs` on `restaurantops-web`). Before
+graphing a quantile of one of those metrics, remove it from the drop list.
+Container logs are capped at 100MB × 3 (`logging` in `config/deploy.yml`, which
+applies to the accessories too).
+
 ## Upgrading Grafana and Prometheus
 
 Upgrade one step per deploy, oldest first, and check each step before the next.
