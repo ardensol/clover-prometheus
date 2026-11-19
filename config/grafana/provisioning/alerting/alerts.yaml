@@ -973,7 +973,19 @@ groups:
         execErrState: Error
       
       # pay returns 422 for declines and validation errors about 2 in 3 times, so
-      # a rejection ratio is normal noise. An outage shows as attempts with no success.
+      # a rejection ratio is normal noise. An outage shows as attempts with almost no success.
+      # Attempts are every checkout pay flow: the HTML form (restaurants/order) and the
+      # API (api/v1/orders), card pay and pay_on_receipt. Success is the HTML 302 redirect
+      # to the order page or the API 200; failures render 4xx/5xx.
+      # increase() only. The "min_over_time unless offset" term used by the other count
+      # rules adds a counter's whole lifetime total when Prometheus lost the data from an
+      # hour ago (the Nov 18 OOM restart did that and paged a false outage). increase()
+      # can miss a success series' first increment after a deploy, which only lowers the
+      # success ratio slightly; it stays far above 5% in normal traffic.
+      # Scrape guard: each web target needs 216 successful scrapes in the hour (90% of
+      # 240 at the 15s scrape_interval in prometheus.yml; update it if that changes).
+      # sum_over_time(up) counts missing scrapes as well as up=0, so a Prometheus outage
+      # or restart can't fire this. InstanceDown and the monitoring-down alert cover that.
       - uid: checkout-payments-failing
         title: CheckoutPaymentsFailing
         condition: C
@@ -985,10 +997,11 @@ groups:
             datasourceUid: prometheus
             model:
               expr: |
-                (((sum(increase(rails_requests_total{controller="restaurants/order",action="pay"}[60m])) or vector(0))
-                + (sum(min_over_time(rails_requests_total{controller="restaurants/order",action="pay"}[60m]) unless rails_requests_total{controller="restaurants/order",action="pay"} offset 60m) or vector(0))) >= bool 20)
-                * (((sum(increase(rails_requests_total{controller="restaurants/order",action="pay",status="302"}[60m])) or vector(0))
-                + (sum(min_over_time(rails_requests_total{controller="restaurants/order",action="pay",status="302"}[60m]) unless rails_requests_total{controller="restaurants/order",action="pay",status="302"} offset 60m) or vector(0))) < bool 0.5)
+                ((sum(increase(rails_requests_total{controller=~"restaurants/order|api/v1/orders",action=~"pay|pay_on_receipt"}[60m])) or vector(0)) >= bool 20)
+                * ((((sum(increase(rails_requests_total{controller="restaurants/order",action=~"pay|pay_on_receipt",status="302"}[60m])) or vector(0))
+                   + (sum(increase(rails_requests_total{controller="api/v1/orders",action=~"pay|pay_on_receipt",status="200"}[60m])) or vector(0)))
+                  / (sum(increase(rails_requests_total{controller=~"restaurants/order|api/v1/orders",action=~"pay|pay_on_receipt"}[60m])) or vector(0))) < bool 0.05)
+                * ((min(sum_over_time(up{job="restaurantops-web"}[60m])) or vector(0)) >= bool 216)
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -1022,10 +1035,10 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "No successful payments"
-          description: "20 or more pay attempts and no successful payment in the last hour. A payment processor or POS may be down."
-        noDataState: NoData
-        execErrState: Error
+          summary: "Payments failing"
+          description: "20 or more pay attempts across card, API and pay-on-receipt checkout, and under 5% succeeded in the last hour, with both web hosts scraped. A payment processor or POS may be down."
+        noDataState: OK
+        execErrState: OK
       
   # Sidekiq metrics come from the sidekiq-exporter accessory, which reads Redis.
   # If it can't reach Redis its scrape fails and InstanceDown fires instead.
