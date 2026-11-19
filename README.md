@@ -76,6 +76,16 @@ ssh root@161.35.237.161 "curl -s localhost:9090/api/v1/query --data-urlencode 'q
 
 Then open both dashboards and check that the panels load.
 
+## Testing alert rules
+
+`test/promtool.sh` runs `promtool test rules` on the alert queries listed in it,
+using the `*_test.yml` files in `test/`. Use the promtool from the Prometheus
+release in `config/deploy.yml`:
+
+```bash
+PATH=/path/to/prometheus-3.13.5.linux-amd64:$PATH test/promtool.sh
+```
+
 ## Architecture
 
 - **Grafana**: Main service with SSL via Kamal proxy on `grafana.restaurantops.co`

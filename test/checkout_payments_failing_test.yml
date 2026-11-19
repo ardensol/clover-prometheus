@@ -1,0 +1,99 @@
+rule_files: [rules.yml]  # written by test/promtool.sh from alerts.yaml
+evaluation_interval: 1m
+tests:
+  # Healthy scrapes, 30 card attempts declined in the hour, no success: real outage.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="restaurantops-web",instance="a"}'
+        values: '1x480'
+      - series: 'up{job="restaurantops-web",instance="b"}'
+        values: '1x480'
+      - series: 'rails_requests_total{controller="api/v1/orders",action="pay",status="422"}'
+        values: '0x240 0+0.125x240'
+      - series: 'rails_requests_total{controller="api/v1/orders",action="pay",status="200"}'
+        values: '5x480'
+    alert_rule_test:
+      - eval_time: 115m
+        alertname: CheckoutPaymentsFailing
+        exp_alerts: [{exp_labels: {}}]
+  # Same outage through the legacy HTML form and pay_on_receipt.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="restaurantops-web",instance="a"}'
+        values: '1x480'
+      - series: 'rails_requests_total{controller="restaurants/order",action="pay_on_receipt",status="422"}'
+        values: '0x240 0+0.125x240'
+      - series: 'rails_requests_total{controller="restaurants/order",action="pay_on_receipt",status="302"}'
+        values: '5x480'
+    alert_rule_test:
+      - eval_time: 115m
+        alertname: CheckoutPaymentsFailing
+        exp_alerts: [{exp_labels: {}}]
+  # Normal traffic: 30 attempts, 10 succeed (API 200 and pay_on_receipt 302).
+  - interval: 15s
+    input_series:
+      - series: 'up{job="restaurantops-web",instance="a"}'
+        values: '1x480'
+      - series: 'up{job="restaurantops-web",instance="b"}'
+        values: '1x480'
+      - series: 'rails_requests_total{controller="api/v1/orders",action="pay",status="422"}'
+        values: '0x240 0+0.0833x240'
+      - series: 'rails_requests_total{controller="api/v1/orders",action="pay",status="200"}'
+        values: '0x240 0+0.0208x240'
+      - series: 'rails_requests_total{controller="restaurants/order",action="pay_on_receipt",status="302"}'
+        values: '0x240 0+0.0208x240'
+    alert_rule_test:
+      - eval_time: 115m
+        alertname: CheckoutPaymentsFailing
+        exp_alerts: []
+  # Nov 18 replay: Prometheus OOM, no samples 8:10-8:46 and the earlier data lost,
+  # so series reappear at 8:46 holding their lifetime totals (t=0 is 7:51).
+  # The old rule added those totals as attempts. Evaluate at 8:46-8:51.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="restaurantops-web",instance="a"}'
+        values: '_x220 1x20'
+      - series: 'up{job="restaurantops-web",instance="b"}'
+        values: '_x220 1x20'
+      - series: 'rails_requests_total{controller="api/v1/orders",action="pay",status="422"}'
+        values: '_x220 500x20'
+      - series: 'rails_requests_total{controller="restaurants/order",action="pay",status="422"}'
+        values: '_x220 80x20'
+      - series: 'rails_requests_total{controller="restaurants/order",action="pay_on_receipt",status="302"}'
+        values: '_x220 300x10 301x10'
+    alert_rule_test:
+      - eval_time: 56m
+        alertname: CheckoutPaymentsFailing
+        exp_alerts: []
+      - eval_time: 60m
+        alertname: CheckoutPaymentsFailing
+        exp_alerts: []
+  # Scrape gap with data kept on both sides and an outage-looking hour: guard holds it.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="restaurantops-web",instance="a"}'
+        values: '1x300 _x144 1x36'
+      - series: 'rails_requests_total{controller="api/v1/orders",action="pay",status="422"}'
+        values: '0x300 _x144 40x36'
+    alert_rule_test:
+      - eval_time: 120m
+        alertname: CheckoutPaymentsFailing
+        exp_alerts: []
+  # Web host down (up=0) for the hour: guard holds it, InstanceDown covers it.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="restaurantops-web",instance="a"}'
+        values: '1x240 0x240'
+      - series: 'rails_requests_total{controller="api/v1/orders",action="pay",status="422"}'
+        values: '0x240 0+0.125x240'
+    alert_rule_test:
+      - eval_time: 115m
+        alertname: CheckoutPaymentsFailing
+        exp_alerts: []
+  # No data at all: evaluates to 0, not NoData.
+  - interval: 15s
+    input_series: []
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CheckoutPaymentsFailing
+        exp_alerts: []
