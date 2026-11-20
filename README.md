@@ -55,6 +55,36 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 echo 'vm.swappiness=10' > /etc/sysctl.d/99-swap.conf && sysctl -p /etc/sysctl.d/99-swap.conf
 ```
 
+Prometheus is capped at 512MB of RAM plus 256MB of swap (`memory` and
+`memory-swap` under the accessory's `options`). At the cap, the OOM kill stays
+inside its container and Docker restarts it (Kamal runs every container with
+`--restart unless-stopped`). Without a cap, the kernel stalls the whole droplet
+first: on Nov 18 nothing on the box reported for 36 minutes, including
+DigitalOcean's own agent. Prometheus 3 sets `GOMEMLIMIT` to 90% of the cap, and
+`--query.max-samples` and `--query.max-concurrency` bound the memory one
+dashboard query can take. If `docker inspect clover-monitoring-prometheus
+--format '{{.RestartCount}}'` keeps climbing, the cap is too small for the series
+count: drop more series or resize the droplet before you raise it.
+
+To check headroom on the host:
+
+```bash
+free -m; swapon --show
+docker stats --no-stream
+dmesg -T | grep -i -A3 'out of memory\|oom-kill'
+curl -s localhost:9090/api/v1/query --data-urlencode 'query=prometheus_tsdb_head_series'
+curl -s localhost:9090/api/v1/status/tsdb | head -c 2000   # top series by metric
+du -sh /root/clover-monitoring-prometheus/prometheus_data
+```
+
+To check that it restarts by itself (scraping resumes within about a minute):
+
+```bash
+docker kill --signal KILL clover-monitoring-prometheus
+sleep 20; docker ps --filter name=clover-monitoring-prometheus
+curl -s localhost:9090/api/v1/targets | grep -o '"health":"[a-z]*"' | sort | uniq -c
+```
+
 To keep Prometheus small, `prometheus.yml` drops Rails histogram buckets that no
 dashboard or alert uses (`metric_relabel_configs` on `restaurantops-web`). Before
 graphing a quantile of one of those metrics, remove it from the drop list.

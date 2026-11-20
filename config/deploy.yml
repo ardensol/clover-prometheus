@@ -46,13 +46,29 @@ accessories:
       - prometheus_data:/prometheus
     files:
       - config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    # Kamal runs accessories with --restart unless-stopped, so an OOM kill restarts it.
+    # The memory cap keeps an OOM inside this container instead of hanging the
+    # 1GB droplet (Nov 18: the whole box stalled for 36 minutes). Prometheus 3
+    # sets GOMEMLIMIT to 90% of the cap, so it collects garbage harder before
+    # it gets there. The healthcheck shows "unhealthy" in docker ps; Docker
+    # does not restart on it.
     options:
       user: root
+      memory: 512m
+      memory-swap: 768m
+      health-cmd: wget -q --spider http://localhost:9090/-/healthy
+      health-interval: 30s
+      health-timeout: 5s
+      health-retries: 3
+    # max-samples and max-concurrency bound query memory, so a wide dashboard
+    # range can't take Prometheus past its cap. The defaults are 50M and 20.
     cmd: >-
       --config.file=/etc/prometheus/prometheus.yml
       --storage.tsdb.path=/prometheus
       --storage.tsdb.retention.time=30d
       --storage.tsdb.retention.size=15GB
+      --query.max-samples=5000000
+      --query.max-concurrency=4
       --web.enable-lifecycle
 
   postgres-exporter:
