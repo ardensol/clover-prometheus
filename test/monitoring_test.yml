@@ -1,0 +1,89 @@
+rule_files: [rules.yml]  # written by test/promtool.sh from alerts.yaml
+evaluation_interval: 1m
+tests:
+  # Prometheus stops scraping from 10m to 20m (a hang, or the Nov 18 OOM gap).
+  # A stopped Prometheus is a query error in Grafana, which promtool can't run.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="restaurantops-web",instance="a"}'
+        values: '1x40 _x39 1x40'
+      - series: 'up{job="restaurantops-web",instance="b"}'
+        values: '1x40 _x39 1x40'
+    alert_rule_test:
+      - eval_time: 10m30s
+        alertname: MonitoringDown
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: MonitoringDown
+        exp_alerts: [{exp_labels: {}}]
+      # Resolves once scraping resumes.
+      - eval_time: 21m
+        alertname: MonitoringDown
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: MonitoringTargetDown
+        exp_alerts: []
+  # One exporter fails its scrapes: the alert names the job and target.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="restaurantops-web",instance="64.23.192.251"}'
+        values: '1x80'
+      - series: 'up{job="node-exporter",instance="64.23.140.194:9100"}'
+        values: '1x20 0x40 1x19'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: MonitoringTargetDown
+        exp_alerts:
+          - exp_labels: {job: node-exporter, instance: "64.23.140.194:9100"}
+            exp_annotations: {}
+      - eval_time: 10m
+        alertname: MonitoringDown
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: MonitoringTargetDown
+        exp_alerts: []
+  # Quick restart (OOM kill and Docker restart): alerts for 15 minutes.
+  - interval: 15s
+    input_series:
+      - series: 'process_start_time_seconds{job="prometheus",instance="localhost:9090"}'
+        values: '100x40 200x80'
+      - series: 'up{job="prometheus",instance="localhost:9090"}'
+        values: '1x40 _x2 1x80'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: MonitoringPrometheusRestarted
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: MonitoringPrometheusRestarted
+        exp_alerts: [{exp_labels: {}}]
+      - eval_time: 26m
+        alertname: MonitoringPrometheusRestarted
+        exp_alerts: []
+  # Restart after a 7 minute outage: MonitoringDown reported it, so no restart alert.
+  - interval: 15s
+    input_series:
+      - series: 'process_start_time_seconds{job="prometheus",instance="localhost:9090"}'
+        values: '100x40 _x28 200x80'
+      - series: 'up{job="prometheus",instance="localhost:9090"}'
+        values: '1x40 _x28 1x80'
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: MonitoringPrometheusRestarted
+        exp_alerts: []
+      - eval_time: 24m
+        alertname: MonitoringPrometheusRestarted
+        exp_alerts: []
+  # Memory: 700MB of 1GB alerts, 400MB doesn't.
+  - interval: 1m
+    input_series:
+      - series: 'process_resident_memory_bytes{job="prometheus",instance="localhost:9090"}'
+        values: '400000000x10 700000000x10'
+      - series: 'node_memory_MemTotal_bytes{role="monitoring",instance="clover-monitoring-node-exporter:9100"}'
+        values: '1000000000x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: MonitoringPrometheusMemoryHigh
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: MonitoringPrometheusMemoryHigh
+        exp_alerts: [{exp_labels: {}}]
